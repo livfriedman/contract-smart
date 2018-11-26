@@ -1,0 +1,101 @@
+pragma solidity ^0.4.0;
+
+contract project {
+    
+    uint public totalUsers;
+    uint public upVote;
+    uint public sysGen = 2 * 10 ** decimals;
+    uint public totalSupply;
+    uint public constant decimals = 18;
+    mapping(address => uint) balances;
+    
+    Question[] questions;
+    
+    struct Question {
+        uint bounty;
+        string description;
+        address author;
+        uint numOfAnswer;
+        uint postTime;
+        mapping (uint => Answer) answers;
+        uint numOfVote;
+        mapping (address => bool) voters;
+        uint validAnswerID;
+        bool resolved;
+    }
+    
+    struct Answer {
+        string description;
+        address author;
+        uint numOfVote;
+        mapping (address => bool) voters;
+    }
+    
+    // make sure bounty is in balances, subtract bounty from asker balance, time stamp of posting time, return length of question for question id 
+    function inputQuestion (uint _questionBounty, string _questionDescription) returns (uint questionID) {
+        require(balances[msg.sender] >= _questionBounty);
+        balances[msg.sender] -= _questionBounty;
+        questions.push(Question(_questionBounty, _questionDescription, msg.sender, 0, block.timestamp, 0, 0, false));
+        return questions.length - 1;
+    }
+    
+    // gets number of answers per question, adds to # of answers every time another one is added, returns number of answers
+    function answerQuestion (uint _questionID, string _answerDescription) returns (uint answerID) {
+        uint numOfAnswer = questions[_questionID].numOfAnswer;
+        questions[_questionID].answers[numOfAnswer] = Answer(_answerDescription, msg.sender, 0);
+        questions[_questionID].numOfAnswer += 1;
+        return numOfAnswer;
+    }
+    
+    // makes sure everyone only votes once per question, adds votes for question
+    function voteAnswer (uint _questionID, uint _answerID) {
+        require(!questions[_questionID].voters[msg.sender]);
+        questions[_questionID].numOfVote += 1;
+        questions[_questionID].answers[_answerID].numOfVote += 1;
+        questions[_questionID].voters[msg.sender] = true;
+        questions[_questionID].answers[_answerID].voters[msg.sender] = true;
+    }
+    
+    // checks validation period (5% users or 48 hours of question posted), loops through answers and # of votes per answer, computes which answer has max votes, gets address for winning answer and sends tokens 
+    function resolveQuestion(uint _questionID) {
+        require(!questions[_questionID].resolved);
+        require(questions[_questionID].numOfVote > totalUsers * 5 / 100 || block.timestamp >= questions[_questionID].postTime + 48 hours);
+        uint maxVote = 0;
+        uint maxVoteID = 0;
+        uint numOfAnswer = questions[_questionID].numOfAnswer;
+        require(numOfAnswer > 0);
+        for(uint i=0; i<numOfAnswer; i++) {
+            if(questions[_questionID].answers[numOfAnswer-i-1].numOfVote >= maxVote) {
+                maxVote = questions[_questionID].answers[numOfAnswer-i-1].numOfVote;
+                maxVoteID = numOfAnswer-i-1;
+            }
+        }
+        questions[_questionID].validAnswerID = maxVoteID;
+        address winningAuthor = questions[_questionID].answers[maxVoteID].author;
+        balances[winningAuthor] += questions[_questionID].bounty + sysGen;
+        questions[_questionID].resolved = true;
+    }
+    
+    // gets valid answer id and rewards voters that voted for max answer 
+    function claimVoterReward(uint _questionID) {
+        require(questions[_questionID].resolved);
+        uint validAnswerID = questions[_questionID].validAnswerID;
+        require(questions[_questionID].answers[validAnswerID].voters[msg.sender]);
+        //get some reward
+        balances[msg.sender] += sysGen / questions[_questionID].answers[validAnswerID].numOfVote;
+        totalSupply += sysGen;
+        questions[_questionID].answers[validAnswerID].voters[msg.sender] = false;
+    }
+    
+    function addUpVote() {
+        upVote = upVote + 1;
+    }
+    constructor (uint _upVote) {
+        upVote = _upVote;
+    }
+    function showVotes() public returns (uint votes) { 
+        if(upVote >= 0) {
+            return (upVote); 
+        }
+    }
+}
