@@ -59,7 +59,7 @@ contract project {
     // checks validation period (5% users or 48 hours of question posted), loops through answers and # of votes per answer, computes which answer has max votes, gets address for winning answer and sends tokens 
     function resolveQuestion(uint _questionID) {
         require(!questions[_questionID].resolved);
-        require(questions[_questionID].numOfVote > totalUsers * 5 / 100 || block.timestamp >= questions[_questionID].postTime + 48 hours);
+        require(questions[_questionID].numOfVote > totalUsers * 5 / 100 & block.timestamp >= questions[_questionID].postTime + 48 hours);
         uint maxVote = 0;
         uint maxVoteID = 0;
         uint numOfAnswer = questions[_questionID].numOfAnswer;
